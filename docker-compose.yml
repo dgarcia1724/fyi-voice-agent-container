@@ -1,0 +1,50 @@
+services:
+  fyi-mern-db:
+    image: mongo:7
+    container_name: fyi-mern-db
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: fyi
+      MONGO_INITDB_ROOT_PASSWORD: fyipassword
+      MONGO_INITDB_DATABASE: fyi
+    volumes:
+      - fyi-mern-db-data:/data/db
+    networks:
+      - fyi-net
+
+  fyi-livekit:
+    image: livekit/livekit-server:latest
+    container_name: fyi-livekit
+    restart: unless-stopped
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50100-50200:50100-50200/udp"
+    command: --dev --bind 0.0.0.0
+    networks:
+      - fyi-net
+
+  fyi-agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: fyi-agent
+    restart: unless-stopped
+    environment:
+      LIVEKIT_URL: ws://fyi-livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - fyi-livekit
+    networks:
+      - fyi-net
+
+networks:
+  fyi-net:
+    driver: bridge
+
+volumes:
+  fyi-mern-db-data:

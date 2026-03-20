@@ -1,0 +1,24 @@
+services:
+
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    ports:
+      - "7880:7880"       # HTTP / WebSocket
+      - "7881:7881"       # RTC TCP
+      - "7882:7882/udp"   # RTC UDP
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    restart: unless-stopped
+
+  agent:
+    build: ./agent
+    env_file: .env
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - livekit
+    restart: unless-stopped
