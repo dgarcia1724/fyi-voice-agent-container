@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useUser, SignOutButton } from '@clerk/nextjs';
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
-
-interface User { name: string; email: string; }
 
 type Tab = 'dashboard' | 'assistant';
 
@@ -51,20 +49,13 @@ const STATUS_BG: Record<string, string> = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isLoaded } = useUser();
   const [tab, setTab] = useState<Tab>('dashboard');
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) { router.push('/login'); return; }
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => { if (d.user) setUser(d.user); else router.push('/login'); })
-      .catch(() => router.push('/login'));
-  }, [router]);
+  if (!isLoaded || !user) return null;
 
-  if (!user) return null;
+  const displayName = user.firstName || user.emailAddresses[0]?.emailAddress?.split('@')[0] || 'there';
+  const displayEmail = user.emailAddresses[0]?.emailAddress || '';
 
   return (
     <div style={s.page}>
@@ -89,27 +80,27 @@ export default function DashboardPage() {
           </div>
         </div>
         <div style={s.navRight}>
-          <span style={s.email}>{user.email}</span>
-          <button style={s.signOut} onClick={() => { localStorage.removeItem('token'); router.push('/login'); }}>
-            Sign out
-          </button>
+          <span style={s.email}>{displayEmail}</span>
+          <SignOutButton redirectUrl="/">
+            <button style={s.signOut}>Sign out</button>
+          </SignOutButton>
         </div>
       </nav>
 
-      {tab === 'dashboard' ? <DashView user={user} /> : <AssistantView />}
+      {tab === 'dashboard' ? <DashView displayName={displayName} /> : <AssistantView />}
     </div>
   );
 }
 
 // ── Dashboard View ───────────────────────────────────────────────────────────
 
-function DashView({ user }: { user: User }) {
+function DashView({ displayName }: { displayName: string }) {
   return (
     <div style={s.main}>
       {/* Header */}
       <div style={s.pageHeader}>
         <div>
-          <h1 style={s.pageTitle}>Good morning, {user.name || user.email.split('@')[0]} 👋</h1>
+          <h1 style={s.pageTitle}>Good morning, {displayName} 👋</h1>
           <p style={s.pageSub}>Here's what's happening with your workspace today.</p>
         </div>
         <button style={s.newBtn}>+ New Project</button>
