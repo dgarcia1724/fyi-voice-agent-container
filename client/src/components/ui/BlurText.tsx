@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { motion, useInView, Variants } from 'framer-motion';
 
 interface BlurTextProps {
@@ -14,6 +14,8 @@ interface BlurTextProps {
     hidden: { filter: string; opacity: number; y: number };
     visible: { filter: string; opacity: number; y: number };
   };
+  getTokenStyle?: (token: string, index: number) => React.CSSProperties;
+  suffix?: React.ReactNode;
 }
 
 const defaultVariants: Variants = {
@@ -29,6 +31,8 @@ export function BlurText({
   direction = 'top',
   onAnimationComplete,
   variant,
+  getTokenStyle,
+  suffix,
 }: BlurTextProps) {
   const ref = useRef<HTMLParagraphElement>(null);
   const inView = useInView(ref, { once: true, margin: '0px 0px -50px 0px' });
@@ -69,11 +73,12 @@ export function BlurText({
             delay: i * (delay / 1000),
             ease: [0.2, 0.65, 0.3, 0.9],
           }}
-          style={{ display: 'inline-block', willChange: 'filter, opacity, transform' }}
+          style={{ display: 'inline-block', willChange: 'filter, opacity, transform', ...(getTokenStyle ? getTokenStyle(token, i) : {}) }}
         >
           {token}{animateBy === 'words' ? '' : ''}
         </motion.span>
       ))}
+      {suffix}
     </p>
   );
 }
