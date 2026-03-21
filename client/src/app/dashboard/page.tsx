@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useUser, SignOutButton } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/AuthContext';
+import { useRouter } from 'next/navigation';
 import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
 
 type Tab = 'dashboard' | 'assistant';
@@ -49,13 +50,18 @@ const STATUS_BG: Record<string, string> = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { user, isLoaded } = useUser();
+  const { user, loading, signOut } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('dashboard');
 
-  if (!isLoaded || !user) return null;
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+  }, [user, loading, router]);
 
-  const displayName = user.firstName || user.emailAddresses[0]?.emailAddress?.split('@')[0] || 'there';
-  const displayEmail = user.emailAddresses[0]?.emailAddress || '';
+  if (loading || !user) return null;
+
+  const displayName = user.displayName || user.email?.split('@')[0] || 'there';
+  const displayEmail = user.email || '';
 
   return (
     <div style={s.page}>
@@ -81,9 +87,7 @@ export default function DashboardPage() {
         </div>
         <div style={s.navRight}>
           <span style={s.email}>{displayEmail}</span>
-          <SignOutButton redirectUrl="/">
-            <button style={s.signOut}>Sign out</button>
-          </SignOutButton>
+          <button style={s.signOut} onClick={async () => { await signOut(); router.push('/'); }}>Sign out</button>
         </div>
       </nav>
 

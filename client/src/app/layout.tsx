@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Open_Sans } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { AuthProvider } from "@/lib/AuthContext";
 import "./globals.css";
 
 const openSans = Open_Sans({
@@ -21,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={openSans.variable}>
-      <body><ClerkProvider>{children}</ClerkProvider></body>
+      <body><AuthProvider>{children}</AuthProvider></body>
     </html>
   );
 }
