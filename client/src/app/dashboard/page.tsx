@@ -3,56 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
-import { VoiceAssistant } from '@/components/ui/VoiceAssistant';
+import { ChatView } from '@/components/ui/ChatView';
 
-type Tab = 'dashboard' | 'assistant';
-
-// ── Dummy data ──────────────────────────────────────────────────────────────
-
-const PROJECTS = [
-  { id: 1, name: 'Q2 Content Strategy', status: 'active', progress: 72, collab: 4, updated: '2h ago' },
-  { id: 2, name: 'Brand Voice Refresh', status: 'review', progress: 90, collab: 2, updated: '5h ago' },
-  { id: 3, name: 'Social Media Calendar', status: 'active', progress: 41, collab: 3, updated: '1d ago' },
-  { id: 4, name: 'Investor Deck v3', status: 'draft', progress: 18, collab: 1, updated: '2d ago' },
-  { id: 5, name: 'Product Launch Copy', status: 'done', progress: 100, collab: 5, updated: '3d ago' },
-];
-
-const TEAMMATES = [
-  { id: 1, name: 'Alex Rivera', role: 'Content Lead', initials: 'AR', active: true },
-  { id: 2, name: 'Jordan Lee', role: 'Designer', initials: 'JL', active: true },
-  { id: 3, name: 'Sam Chen', role: 'Copywriter', initials: 'SC', active: false },
-  { id: 4, name: 'Maya Patel', role: 'Strategist', initials: 'MP', active: true },
-  { id: 5, name: 'Chris Kim', role: 'Editor', initials: 'CK', active: false },
-];
-
-const ACTIVITY = [
-  { id: 1, who: 'Alex Rivera', action: 'commented on', target: 'Q2 Content Strategy', time: '12m ago' },
-  { id: 2, who: 'Jordan Lee', action: 'uploaded to', target: 'Brand Voice Refresh', time: '1h ago' },
-  { id: 3, who: 'Maya Patel', action: 'completed task in', target: 'Social Media Calendar', time: '3h ago' },
-  { id: 4, who: 'Sam Chen', action: 'shared', target: 'Investor Deck v3', time: '6h ago' },
-  { id: 5, who: 'Chris Kim', action: 'reviewed', target: 'Product Launch Copy', time: '1d ago' },
-];
-
-const STATUS_COLOR: Record<string, string> = {
-  active: '#22c55e',
-  review: '#f59e0b',
-  draft: 'rgba(255,255,255,0.3)',
-  done: '#2563EB',
-};
-
-const STATUS_BG: Record<string, string> = {
-  active: 'rgba(34,197,94,0.12)',
-  review: 'rgba(245,158,11,0.12)',
-  draft: 'rgba(255,255,255,0.06)',
-  done: 'rgba(37,99,235,0.18)',
-};
-
-// ── Component ────────────────────────────────────────────────────────────────
+type Tab = 'contacts' | 'chats' | 'ai' | 'projects' | 'profile';
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('dashboard');
+  const [tab, setTab] = useState<Tab>('ai');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -60,147 +18,221 @@ export default function DashboardPage() {
 
   if (loading || !user) return null;
 
-  const displayName = user.displayName || user.email?.split('@')[0] || 'there';
-  const displayEmail = user.email || '';
-
   return (
     <div style={s.page}>
-      {/* NAV */}
-      <nav style={s.nav}>
-        <div style={s.navLeft}>
-          <span style={s.logo}>FYI</span>
-          {/* Tab toggle */}
-          <div style={s.tabs}>
-            <button
-              style={{ ...s.tab, ...(tab === 'dashboard' ? s.tabActive : {}) }}
-              onClick={() => setTab('dashboard')}
-            >
-              Dashboard
-            </button>
-            <button
-              style={{ ...s.tab, ...(tab === 'assistant' ? s.tabActive : {}) }}
-              onClick={() => setTab('assistant')}
-            >
-              AI Assistant
-            </button>
-          </div>
-        </div>
-        <div style={s.navRight}>
-          <span style={s.email}>{displayEmail}</span>
-          <button style={s.signOut} onClick={async () => { await signOut(); router.push('/'); }}>Sign out</button>
-        </div>
+      <div style={s.content}>
+        {tab === 'contacts' && <ContactsView />}
+        {tab === 'chats' && <ChatsView />}
+        {tab === 'ai' && <AIView />}
+        {tab === 'projects' && <ProjectsView />}
+        {tab === 'profile' && <ProfileView email={user.email ?? ''} />}
+      </div>
+
+      <nav style={s.navbar}>
+        <NavItem icon={<ContactsIcon />} label="Contacts" active={tab === 'contacts'} onClick={() => setTab('contacts')} />
+        <NavItem icon={<ChatsIcon />} label="Chats" active={tab === 'chats'} onClick={() => setTab('chats')} />
+        <NavItem icon={<AIIcon active={tab === 'ai'} />} label="AI" active={tab === 'ai'} onClick={() => setTab('ai')} isCenter />
+        <NavItem icon={<ProjectsIcon />} label="Projects" active={tab === 'projects'} onClick={() => setTab('projects')} />
+        <NavItem icon={<ProfileIcon />} label="Profile" active={tab === 'profile'} onClick={() => setTab('profile')} />
       </nav>
-
-      {tab === 'dashboard' ? <DashView displayName={displayName} /> : <AssistantView />}
     </div>
   );
 }
 
-// ── Dashboard View ───────────────────────────────────────────────────────────
-
-function DashView({ displayName }: { displayName: string }) {
+function FYILogo() {
   return (
-    <div style={s.main}>
-      {/* Header */}
-      <div style={s.pageHeader}>
+    <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="8" fill="white" />
+      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle"
+        fontFamily="Open Sans, sans-serif" fontWeight="900" fontSize="18" fill="#000">
+        FYI
+      </text>
+      <polygon points="8,48 8,42 16,48" fill="white" />
+    </svg>
+  );
+}
+
+function PageHeader({ title, aiLogo }: { title: string; aiLogo?: boolean }) {
+  return (
+    <div style={s.header}>
+      {aiLogo ? (
+        <div style={s.aiHeader}>
+          <FYILogo />
+          <span style={s.pageTitle}>{title}</span>
+        </div>
+      ) : (
+        <span style={s.pageTitle}>{title}</span>
+      )}
+    </div>
+  );
+}
+
+function AIView() {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <PageHeader title="AI" aiLogo />
+      <ChatView />
+    </div>
+  );
+}
+
+function ProfileView({ email }: { email: string }) {
+  const initial = email.charAt(0).toUpperCase();
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '1.25rem 1.5rem 1rem' }}>
+        <span style={s.pageTitle}>Profile</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.5rem', background: '#1c1c1e', margin: '0 1rem', borderRadius: '16px' }}>
+        <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+          {initial}
+        </div>
         <div>
-          <h1 style={s.pageTitle}>Good morning, {displayName} 👋</h1>
-          <p style={s.pageSub}>Here's what's happening with your workspace today.</p>
+          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginBottom: '0.2rem' }}>{email.split('@')[0]}</div>
+          <div style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.4)' }}>{email}</div>
         </div>
-        <button style={s.newBtn}>+ New Project</button>
+      </div>
+    </div>
+  );
+}
+
+function ProjectsView() {
+  const [projTab, setProjTab] = useState<'yours' | 'shared' | 'followed'>('yours');
+  const tabs = ['yours', 'shared', 'followed'] as const;
+
+  const projects = [
+    { name: 'Muscle', time: '2 hrs ago', bg: '#2a2a2a', emoji: '💪' },
+    { name: 'Build ai voice assist...', time: 'Yesterday', bg: '#1a2a1a', emoji: '🐕' },
+  ];
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem 0.75rem' }}>
+        <span style={s.pageTitle}>Projects</span>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </div>
       </div>
 
-      {/* Stat cards */}
-      <div style={s.statsRow}>
-        {[
-          { label: 'Active Projects', value: '5', delta: '+2 this month' },
-          { label: 'Teammates', value: '5', delta: '3 online now' },
-          { label: 'Collaborations', value: '12', delta: '+4 this week' },
-          { label: 'AI Conversations', value: '38', delta: 'last 7 days' },
-        ].map((c) => (
-          <div key={c.label} style={s.statCard}>
-            <span style={s.statCardValue}>{c.value}</span>
-            <span style={s.statCardLabel}>{c.label}</span>
-            <span style={s.statCardDelta}>{c.delta}</span>
-          </div>
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', padding: '0 1.5rem', gap: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        {tabs.map(t => (
+          <button key={t} onClick={() => setProjTab(t)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '0.6rem 0',
+            fontSize: '0.75rem', fontWeight: 700,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: projTab === t ? '#fff' : 'rgba(255,255,255,0.35)',
+            borderBottom: projTab === t ? '2px solid #2563EB' : '2px solid transparent',
+            marginBottom: '-1px',
+          }}>
+            {t}
+          </button>
         ))}
       </div>
 
-      {/* Main grid */}
-      <div style={s.grid}>
-        {/* Projects */}
-        <div style={s.card}>
-          <div style={s.cardHeader}>
-            <span style={s.cardTitle}>Projects</span>
-            <button style={s.cardAction}>View all</button>
-          </div>
-          <div style={s.projectList}>
-            {PROJECTS.map((p) => (
-              <div key={p.id} style={s.projectRow}>
-                <div style={s.projectLeft}>
-                  <span style={s.projectName}>{p.name}</span>
-                  <div style={s.projectMeta}>
-                    <span style={{ ...s.badge, color: STATUS_COLOR[p.status], background: STATUS_BG[p.status] }}>
-                      {p.status}
-                    </span>
-                    <span style={s.metaText}>{p.collab} members</span>
-                    <span style={s.metaText}>{p.updated}</span>
-                  </div>
-                </div>
-                <div style={s.projectRight}>
-                  <div style={s.progressTrack}>
-                    <div style={{ ...s.progressFill, width: `${p.progress}%`, background: p.progress === 100 ? '#22c55e' : '#2563EB' }} />
-                  </div>
-                  <span style={s.progressLabel}>{p.progress}%</span>
-                </div>
+      {/* 2-column grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '1rem' }}>
+        {projects.map((p, i) => (
+          <div key={i} style={{ borderRadius: '14px', overflow: 'hidden', background: '#1c1c1e', cursor: 'pointer' }}>
+            {/* Thumbnail */}
+            <div style={{ height: '130px', background: p.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>
+              {p.emoji}
+            </div>
+            {/* Info */}
+            <div style={{ padding: '0.6rem 0.75rem 0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>{p.time}</span>
               </div>
-            ))}
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChatsView() {
+  const [chatTab, setChatTab] = useState<'all' | 'groups' | 'projects' | 'calls'>('all');
+  const tabs = ['all', 'groups', 'projects', 'calls'] as const;
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem 0.75rem' }}>
+        <span style={s.pageTitle}>Chat</span>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', padding: '0 1.5rem', gap: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        {tabs.map(t => (
+          <button key={t} onClick={() => setChatTab(t)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '0.6rem 0',
+            fontSize: '0.75rem', fontWeight: 700,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: chatTab === t ? '#fff' : 'rgba(255,255,255,0.35)',
+            borderBottom: chatTab === t ? '2px solid #2563EB' : '2px solid transparent',
+            marginBottom: '-1px',
+          }}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Chat rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', padding: '1rem 1rem', gap: '0.75rem' }}>
+        {/* Row 1 — plain dark */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', background: '#1c1c1e', borderRadius: '14px', padding: '0.85rem 1rem' }}>
+          <div style={{ width: '52px', height: '52px', borderRadius: '12px', background: '#333', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: '1.5rem' }}>🐕</span>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>Build ai voice assistant</span>
+              <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', flexShrink: 0, marginLeft: '0.5rem' }}>Yesterday</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="3,9 21,9"/><path d="m9 21 3-3 3 3"/><line x1="12" y1="9" x2="12" y2="21"/></svg>
+              <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.35)' }}>Attachments: image</span>
+            </div>
           </div>
         </div>
 
-        {/* Right column */}
-        <div style={s.rightCol}>
-          {/* Teammates */}
-          <div style={s.card}>
-            <div style={s.cardHeader}>
-              <span style={s.cardTitle}>Teammates</span>
-              <button style={s.cardAction}>Invite</button>
-            </div>
-            <div style={s.teammateList}>
-              {TEAMMATES.map((t) => (
-                <div key={t.id} style={s.teammateRow}>
-                  <div style={s.avatarWrap}>
-                    <div style={s.avatar}>{t.initials}</div>
-                    <div style={{ ...s.dot, background: t.active ? '#22c55e' : 'rgba(255,255,255,0.2)' }} />
-                  </div>
-                  <div style={s.teammateInfo}>
-                    <span style={s.teammateName}>{t.name}</span>
-                    <span style={s.teammateRole}>{t.role}</span>
-                  </div>
-                  <button style={s.dmBtn}>Message</button>
-                </div>
-              ))}
-            </div>
+        {/* Row 2 — blue border */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', background: '#0d1526', border: '1.5px solid #2563EB', borderRadius: '14px', padding: '0.85rem 1rem' }}>
+          <div style={{ width: '52px', height: '52px', borderRadius: '12px', background: '#1a3a8f', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="9" cy="9" r="1.5" fill="#2563EB" stroke="none"/>
+              <circle cx="15" cy="9" r="1.5" fill="#2563EB" stroke="none"/>
+              <path d="M9 15h6" />
+            </svg>
           </div>
-
-          {/* Activity */}
-          <div style={s.card}>
-            <div style={s.cardHeader}>
-              <span style={s.cardTitle}>Recent Activity</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>FYI.FYI</span>
+              <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', flexShrink: 0, marginLeft: '0.5rem' }}>Yesterday</span>
             </div>
-            <div style={s.activityList}>
-              {ACTIVITY.map((a) => (
-                <div key={a.id} style={s.activityRow}>
-                  <div style={s.activityDot} />
-                  <div style={s.activityText}>
-                    <span style={s.activityWho}>{a.who}</span>
-                    {' '}<span style={s.activityAction}>{a.action}</span>{' '}
-                    <span style={s.activityTarget}>{a.target}</span>
-                  </div>
-                  <span style={s.activityTime}>{a.time}</span>
-                </div>
-              ))}
-            </div>
+            <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+              Welcome to FYI, the ultimate productivity t…
+            </span>
           </div>
         </div>
       </div>
@@ -208,134 +240,222 @@ function DashView({ displayName }: { displayName: string }) {
   );
 }
 
-// ── AI Assistant View ────────────────────────────────────────────────────────
-
-function AssistantView() {
+function ContactsView() {
   return (
-    <>
-      <section style={s.hero}>
-        <h1 style={s.heroHeading}>Your AI Assistant</h1>
-        <p style={s.heroSub}>Talk to FYI — get answers, create content, manage your workspace.</p>
-      </section>
-
-      <section style={s.voiceSection}>
-        <div style={s.voiceCard}>
-          <p style={s.voiceLabel}>VOICE ASSISTANT</p>
-          <h2 style={s.voiceHeading}>Start a conversation</h2>
-          <p style={s.voiceSub}>Click below, allow microphone access, and start talking.</p>
-          <div style={s.vaWrap}>
-            <VoiceAssistant />
-          </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem 1rem' }}>
+        <span style={s.pageTitle}>Contacts</span>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
         </div>
-      </section>
+      </div>
 
-      <section style={s.statsSection}>
-        {[
-          { label: 'Conversations', value: '38' },
-          { label: 'Messages sent', value: '214' },
-          { label: 'Projects active', value: '5' },
-        ].map((item) => (
-          <div key={item.label} style={s.stat}>
-            <span style={s.statValue}>{item.value}</span>
-            <span style={s.statLabel}>{item.label}</span>
-          </div>
-        ))}
-      </section>
-    </>
+      {/* Empty state */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', gap: '1.25rem' }}>
+        {/* Blue add-contact icon */}
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="9" cy="7" r="4" />
+          <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+          <path d="M19 8v6M22 11h-6" />
+        </svg>
+
+        <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>
+          Invite Contacts
+        </h2>
+
+        <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 1.6, margin: 0, maxWidth: '260px' }}>
+          You have no contacts on FYI yet.<br />Invite your friends to start chatting!
+        </p>
+
+        <button style={{
+          background: '#2563EB',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '12px',
+          padding: '1rem 0',
+          width: '100%',
+          maxWidth: '320px',
+          fontSize: '1rem',
+          fontWeight: 700,
+          cursor: 'pointer',
+          marginTop: '0.5rem',
+        }}>
+          Invite Contacts
+        </button>
+      </div>
+    </div>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+function BlankView({ title, aiLogo }: { title: string; aiLogo?: boolean }) {
+  return (
+    <div style={{ flex: 1 }}>
+      <PageHeader title={title} aiLogo={aiLogo} />
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active, onClick, isCenter }: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  isCenter?: boolean;
+}) {
+  if (isCenter) {
+    return (
+      <button style={s.navCenter} onClick={onClick}>
+        <div style={{ ...s.aiCircle, background: active ? '#2563EB' : '#333' }}>
+          {icon}
+        </div>
+        <span style={{ ...s.navLabel, color: active ? '#2563EB' : 'rgba(255,255,255,0.5)' }}>{label}</span>
+      </button>
+    );
+  }
+  return (
+    <button style={s.navItem} onClick={onClick}>
+      <div style={{ color: active ? '#2563EB' : 'rgba(255,255,255,0.55)' }}>{icon}</div>
+      <span style={{ ...s.navLabel, color: active ? '#2563EB' : 'rgba(255,255,255,0.5)' }}>{label}</span>
+    </button>
+  );
+}
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
+
+function ContactsIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="7" r="3" />
+      <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      <path d="M21 21v-2a4 4 0 0 0-3-3.85" />
+    </svg>
+  );
+}
+
+function ChatsIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function AIIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M9 9h.01M15 9h.01M9 15h6" />
+    </svg>
+  );
+}
+
+function ProjectsIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: '#000', color: '#fff', fontFamily: 'Inter, sans-serif' },
-
-  // Nav
-  nav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', height: '60px', borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'sticky', top: 0, background: '#000', zIndex: 100 },
-  navLeft: { display: 'flex', alignItems: 'center', gap: '2rem' },
-  logo: { fontSize: '1.3rem', fontWeight: 900, letterSpacing: '0.08em', color: '#fff' },
-
-  // Tabs
-  tabs: { display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '4px' },
-  tab: { padding: '0.35rem 1.1rem', borderRadius: '999px', border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.45)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' },
-  tabActive: { background: '#2563EB', color: '#fff' },
-
-  navRight: { display: 'flex', alignItems: 'center', gap: '1rem' },
-  email: { fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)' },
-  signOut: { padding: '0.4rem 1rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '999px', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', cursor: 'pointer' },
-
-  // Dashboard layout
-  main: { maxWidth: '1200px', margin: '0 auto', padding: '2.5rem 2rem' },
-  pageHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' },
-  pageTitle: { fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.3rem', color: '#fff' },
-  pageSub: { fontSize: '0.9rem', color: 'rgba(255,255,255,0.45)', margin: 0 },
-  newBtn: { padding: '0.6rem 1.4rem', background: '#2563EB', border: 'none', borderRadius: '999px', color: '#fff', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' },
-
-  // Stat cards
-  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' },
-  statCard: { background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' },
-  statCardValue: { fontSize: '2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 },
-  statCardLabel: { fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '0.35rem' },
-  statCardDelta: { fontSize: '0.78rem', color: '#2563EB', fontWeight: 600, marginTop: '0.15rem' },
-
-  // Grid
-  grid: { display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1rem', alignItems: 'start' },
-  rightCol: { display: 'flex', flexDirection: 'column', gap: '1rem' },
-
-  // Card
-  card: { background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.5rem' },
-  cardHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' },
-  cardTitle: { fontSize: '0.95rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' },
-  cardAction: { fontSize: '0.8rem', fontWeight: 600, color: '#2563EB', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 },
-
-  // Projects
-  projectList: { display: 'flex', flexDirection: 'column', gap: '0' },
-  projectRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.9rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '1rem' },
-  projectLeft: { display: 'flex', flexDirection: 'column', gap: '0.4rem', minWidth: 0 },
-  projectName: { fontSize: '0.9rem', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  projectMeta: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' },
-  badge: { fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', padding: '0.15rem 0.55rem', borderRadius: '999px' },
-  metaText: { fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', fontWeight: 500 },
-  projectRight: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 },
-  progressTrack: { width: '80px', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '999px', overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: '999px', transition: 'width 0.3s' },
-  progressLabel: { fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600, minWidth: '28px', textAlign: 'right' },
-
-  // Teammates
-  teammateList: { display: 'flex', flexDirection: 'column', gap: '0' },
-  teammateRow: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' },
-  avatarWrap: { position: 'relative', flexShrink: 0 },
-  avatar: { width: '36px', height: '36px', borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800, color: '#fff', letterSpacing: '0.03em' },
-  dot: { position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', borderRadius: '50%', border: '2px solid #111' },
-  teammateInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.1rem', minWidth: 0 },
-  teammateName: { fontSize: '0.85rem', fontWeight: 600, color: '#fff' },
-  teammateRole: { fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' },
-  dmBtn: { fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', padding: '0.25rem 0.7rem', cursor: 'pointer', flexShrink: 0 },
-
-  // Activity
-  activityList: { display: 'flex', flexDirection: 'column', gap: '0' },
-  activityRow: { display: 'flex', alignItems: 'flex-start', gap: '0.65rem', padding: '0.65rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' },
-  activityDot: { width: '6px', height: '6px', borderRadius: '50%', background: '#2563EB', flexShrink: 0, marginTop: '0.3rem' },
-  activityText: { flex: 1, fontSize: '0.8rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.55)' },
-  activityWho: { fontWeight: 700, color: '#fff' },
-  activityAction: { color: 'rgba(255,255,255,0.4)' },
-  activityTarget: { fontWeight: 600, color: 'rgba(255,255,255,0.7)' },
-  activityTime: { fontSize: '0.72rem', color: 'rgba(255,255,255,0.25)', whiteSpace: 'nowrap', flexShrink: 0 },
-
-  // AI Assistant view
-  hero: { background: '#2563EB', padding: '5rem 2rem', textAlign: 'center' },
-  heroHeading: { fontSize: 'clamp(2.5rem, 6vw, 5rem)', fontWeight: 900, letterSpacing: '-0.03em', margin: '0 0 1rem', color: '#fff' },
-  heroSub: { fontSize: '1.1rem', color: 'rgba(255,255,255,0.75)', maxWidth: '500px', margin: '0 auto', lineHeight: 1.7 },
-
-  voiceSection: { background: '#000', padding: '5rem 2rem', display: 'flex', justifyContent: 'center' },
-  voiceCard: { width: '100%', maxWidth: '520px', background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '3rem 2.5rem', textAlign: 'center' },
-  voiceLabel: { fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', color: '#2563EB', textTransform: 'uppercase', marginBottom: '1rem' },
-  voiceHeading: { fontSize: '1.8rem', fontWeight: 800, color: '#fff', margin: '0 0 0.75rem', letterSpacing: '-0.02em' },
-  voiceSub: { fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)', marginBottom: '2rem', lineHeight: 1.6 },
-  vaWrap: { display: 'flex', justifyContent: 'center' },
-
-  statsSection: { background: '#2563EB', padding: '4rem 2rem', display: 'flex', justifyContent: 'center', gap: '4rem', flexWrap: 'wrap' },
-  stat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' },
-  statValue: { fontSize: '3rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.03em' },
-  statLabel: { fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' },
+  page: {
+    minHeight: '100vh',
+    background: '#000',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  content: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    paddingBottom: '80px',
+  },
+  header: {
+    padding: '1.25rem 1.5rem 1rem',
+  },
+  pageTitle: {
+    fontSize: '2rem',
+    fontWeight: 900,
+    color: '#fff',
+    letterSpacing: '-0.02em',
+  },
+  aiHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  },
+  navbar: {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '80px',
+    background: '#1c1c1e',
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingBottom: '12px',
+    zIndex: 100,
+  },
+  navItem: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '8px 0 0',
+  },
+  navCenter: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px 0 0',
+  },
+  aiCircle: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: '-10px',
+    transition: 'background 0.2s',
+  },
+  navLabel: {
+    fontSize: '0.65rem',
+    fontWeight: 600,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    transition: 'color 0.2s',
+  },
 };

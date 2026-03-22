@@ -1,37 +1,28 @@
 """
 FYI Voice Agent
 ───────────────
-LiveKit Agents worker — STT (Whisper) → LLM (GPT-4o-mini) → TTS (OpenAI).
-Runs as a persistent job dispatcher; one agent per room.
+LiveKit Agents v1.x worker — OpenAI Realtime API (VAD + STT + LLM + TTS in one).
 """
 from __future__ import annotations
 
 import logging
 from dotenv import load_dotenv
 
-from livekit import agents
-from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
-from livekit.agents.voice_assistant import VoiceAssistant
-from livekit.plugins import openai, silero
+from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
+from livekit.plugins.openai import realtime
 
 load_dotenv()
 logger = logging.getLogger("fyi-agent")
 
-
 SYSTEM_PROMPT = """
-You are FYI's AI assistant — a creative co-pilot built for professionals in
-music, film, design, and content creation.
+You must always speak and respond in English only.
+
+You are FYI's AI assistant — a warm, helpful creative co-pilot.
 
 Your personality:
 - Concise and direct (keep replies short unless asked to elaborate)
 - Warm and encouraging — you believe in the user's creative vision
 - Practical — give actionable suggestions, not generic advice
-
-You can help with:
-- Drafting copy, lyrics, scripts, pitches, and creative briefs
-- Brainstorming ideas and giving feedback
-- Summarising projects or conversations
-- Answering questions about FYI's features
 
 Always respond in plain spoken English — no markdown, no bullet points,
 since your words will be read aloud via text-to-speech.
@@ -41,26 +32,23 @@ since your words will be read aloud via text-to-speech.
 async def entrypoint(ctx: JobContext):
     logger.info("FYI agent joining room: %s", ctx.room.name)
 
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+    await ctx.connect()
 
-    initial_ctx = llm.ChatContext().append(
-        role="system",
-        text=SYSTEM_PROMPT,
+    session = AgentSession(
+        llm=realtime.RealtimeModel(
+            voice="shimmer",
+            temperature=0.8,
+        ),
+        allow_interruptions=False,
     )
 
-    assistant = VoiceAssistant(
-        vad=silero.VAD.load(),
-        stt=openai.STT(),
-        llm=openai.LLM(model="gpt-4o-mini"),
-        tts=openai.TTS(voice="alloy"),
-        chat_ctx=initial_ctx,
+    await session.start(
+        room=ctx.room,
+        agent=Agent(instructions=SYSTEM_PROMPT),
     )
 
-    assistant.start(ctx.room)
-
-    await assistant.say(
-        "Hey, I'm your FYI assistant. What are we creating today?",
-        allow_interruptions=True,
+    await session.generate_reply(
+        instructions="Respond in English. Greet the user warmly and ask what they'd like help with today."
     )
 
     logger.info("FYI agent ready in room: %s", ctx.room.name)

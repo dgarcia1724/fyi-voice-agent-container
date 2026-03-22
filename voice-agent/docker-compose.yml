@@ -17,7 +17,7 @@ services:
     environment:
       LIVEKIT_URL: ws://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret-fyi-mern-app-key-long-enough}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       - livekit

@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './db';
 import authRouter from './auth';
 import livekitRouter from './livekit';
+import chatRouter from './chat';
 
 const app = express();
 const PORT = 3000;
@@ -16,6 +18,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/livekit', livekitRouter);
+app.use('/api/chat', chatRouter);
 
 connectDB().then(() => {
   app.listen(PORT, () => {
