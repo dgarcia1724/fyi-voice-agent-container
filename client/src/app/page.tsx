@@ -250,11 +250,6 @@ export default function LandingPage() {
         <nav style={s.nav}>
           <div style={s.navLeft}>
             <FYILogo size={44} />
-            <button style={s.hamburger} aria-label="menu">
-              <span style={s.hamburgerLine} />
-              <span style={s.hamburgerLine} />
-              <span style={s.hamburgerLine} />
-            </button>
           </div>
           <Link href="/login">
             <button style={s.downloadBtn}>DOWNLOAD</button>

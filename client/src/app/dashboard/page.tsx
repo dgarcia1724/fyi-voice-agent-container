@@ -106,6 +106,7 @@ function AIView() {
 }
 
 function ProfileView({ email }: { email: string }) {
+  const { signOut } = useAuth();
   const initial = email.charAt(0).toUpperCase();
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -121,6 +122,12 @@ function ProfileView({ email }: { email: string }) {
           <div style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.4)' }}>{email}</div>
         </div>
       </div>
+      <button
+        onClick={signOut}
+        style={{ margin: '1rem', padding: '0.9rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', color: '#ff453a', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        Log out
+      </button>
     </div>
   );
 }
