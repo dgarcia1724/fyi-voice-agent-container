@@ -2,20 +2,27 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
+import type { SharedMessage } from '@/app/dashboard/page';
 
-type Message = { role: 'user' | 'assistant'; content: string };
+interface ChatViewProps {
+  messages: SharedMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<SharedMessage[]>>;
+}
 
-export function ChatView() {
-  const [messages, setMessages] = useState<Message[]>([]);
+export function ChatView({ messages, setMessages }: ChatViewProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [spokenWordCount, setSpokenWordCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
-  const pendingUtterancesRef = useRef(0);
+  const audioQueueRef = useRef<HTMLAudioElement[]>([]);
+  const pendingFetchesRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  const voiceActiveRef = useRef(false);
+  const sendTextRef = useRef(sendText);
+  sendTextRef.current = sendText;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,54 +36,91 @@ export function ChatView() {
   }, []);
 
   function cancelSpeech() {
-    pendingUtterancesRef.current = 0;
-    window.speechSynthesis?.cancel();
+    voiceActiveRef.current = false;
+    pendingFetchesRef.current = 0;
+    audioQueueRef.current.forEach(a => URL.revokeObjectURL(a.src));
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
     setSpeaking(false);
-    setSpokenWordCount(0);
   }
 
-  function queueSpeech(text: string, wordOffset: number) {
-    if (!text.trim()) return;
-    pendingUtterancesRef.current++;
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'en-US';
-    utt.onboundary = (e: SpeechSynthesisEvent) => {
-      if (e.name === 'word') {
-        const wordsSpoken = text
-          .slice(0, e.charIndex + e.charLength)
-          .trim().split(/\s+/).filter(Boolean).length;
-        setSpokenWordCount(wordOffset + wordsSpoken);
+  function playNext() {
+    if (audioQueueRef.current.length === 0) {
+      if (pendingFetchesRef.current === 0) {
+        isPlayingRef.current = false;
+        setSpeaking(false);
+        if (voiceActiveRef.current) {
+          setTimeout(() => {
+            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (!SR) return;
+            const rec = new SR();
+            rec.lang = 'en-US';
+            rec.interimResults = false;
+            rec.onstart = () => setListening(true);
+            rec.onend = () => setListening(false);
+            rec.onerror = () => setListening(false);
+            rec.onresult = (e: any) => {
+              const t = e.results[0][0].transcript.trim();
+              if (t) sendTextRef.current(t);
+            };
+            recognitionRef.current = rec;
+            rec.start();
+          }, 500);
+        }
       }
+      return;
+    }
+    isPlayingRef.current = true;
+    const audio = audioQueueRef.current.shift()!;
+    audio.onended = () => {
+      URL.revokeObjectURL(audio.src);
+      playNext();
     };
-    utt.onstart = () => setSpeaking(true);
-    utt.onend = () => {
-      const totalWords = text.trim().split(/\s+/).filter(Boolean).length;
-      setSpokenWordCount(wordOffset + totalWords);
-      pendingUtterancesRef.current--;
-      if (pendingUtterancesRef.current === 0) setSpeaking(false);
+    audio.onerror = () => {
+      URL.revokeObjectURL(audio.src);
+      playNext();
     };
-    utt.onerror = () => {
-      pendingUtterancesRef.current--;
-      if (pendingUtterancesRef.current === 0) setSpeaking(false);
-    };
-    window.speechSynthesis.speak(utt);
+    setSpeaking(true);
+    audio.play().catch(() => playNext());
+  }
+
+  async function queueSpeech(text: string) {
+    if (!text.trim()) return;
+    pendingFetchesRef.current++;
+    try {
+      const res = await fetch('http://localhost:3000/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      audioQueueRef.current.push(new Audio(url));
+    } catch {
+      // skip on error
+    } finally {
+      pendingFetchesRef.current--;
+      if (!isPlayingRef.current) playNext();
+    }
   }
 
   async function sendText(text: string) {
-    const userMsg: Message = { role: 'user', content: text };
-    const newMessages = [...messages, userMsg];
-    setMessages([...newMessages, { role: 'assistant', content: '' }]);
-    setSpokenWordCount(0);
+    const userMsg: SharedMessage = { id: crypto.randomUUID(), role: 'user', content: text, source: 'chat' };
+    const placeholder: SharedMessage = { id: crypto.randomUUID(), role: 'assistant', content: '', source: 'chat' };
+
+    // Snapshot current messages for the API call before state update
+    const historyForApi = messages.map(m => ({ role: m.role, content: m.content }));
+
+    setMessages(prev => [...prev, userMsg, placeholder]);
     setLoading(true);
 
     let sentenceBuffer = '';
-    let queuedWordCount = 0;
 
     try {
       const res = await fetch('http://localhost:3000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: [...historyForApi, { role: 'user', content: text }] }),
       });
 
       const reader = res.body!.getReader();
@@ -86,7 +130,7 @@ export function ChatView() {
         const { done, value } = await reader.read();
         if (done) {
           if (sentenceBuffer.trim()) {
-            queueSpeech(sentenceBuffer.trim(), queuedWordCount);
+            queueSpeech(sentenceBuffer.trim());
           }
           break;
         }
@@ -96,7 +140,7 @@ export function ChatView() {
         setMessages(prev => {
           const updated = [...prev];
           updated[updated.length - 1] = {
-            role: 'assistant',
+            ...updated[updated.length - 1],
             content: updated[updated.length - 1].content + chunk,
           };
           return updated;
@@ -106,8 +150,7 @@ export function ChatView() {
         let idx: number;
         while ((idx = sentenceBuffer.search(sentenceEnd)) !== -1) {
           const sentence = sentenceBuffer.slice(0, idx + 1).trim();
-          queueSpeech(sentence, queuedWordCount);
-          queuedWordCount += sentence.split(/\s+/).filter(Boolean).length;
+          queueSpeech(sentence);
           sentenceBuffer = sentenceBuffer.slice(idx + 1).trimStart();
         }
       }
@@ -115,7 +158,7 @@ export function ChatView() {
       setMessages(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = {
-          role: 'assistant',
+          ...updated[updated.length - 1],
           content: 'Something went wrong. Please try again.',
         };
         return updated;
@@ -128,6 +171,7 @@ export function ChatView() {
   function send() {
     const text = input.trim();
     if (!text || loading) return;
+    voiceActiveRef.current = false;
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     sendText(text);
@@ -146,7 +190,7 @@ export function ChatView() {
     rec.onerror = () => setListening(false);
     rec.onresult = (e: any) => {
       const transcript = e.results[0][0].transcript.trim();
-      if (transcript) sendText(transcript);
+      if (transcript) { voiceActiveRef.current = true; sendText(transcript); }
     };
     recognitionRef.current = rec;
     rec.start();
@@ -171,21 +215,19 @@ export function ChatView() {
       <div style={s.messages}>
         {isEmpty && (
           <div style={s.emptyState}>
-            <p style={s.emptyHeading}>What&apos;s on your mind today?</p>
+            <p style={s.emptyHeading}>What's on your mind today?</p>
           </div>
         )}
 
         {messages.map((msg, i) => {
           const isLastAI = msg.role === 'assistant' && i === messages.length - 1;
           return msg.role === 'user' ? (
-            <div key={i} style={s.userRow}>
+            <div key={msg.id} style={s.userRow}>
               <div style={s.userBubble}>{msg.content}</div>
             </div>
           ) : (
-            <div key={i} style={s.aiBubble}>
-              {isLastAI && speaking
-                ? <HighlightedText content={msg.content} spokenWords={spokenWordCount} />
-                : isLastAI && loading
+            <div key={msg.id} style={s.aiBubble}>
+              {isLastAI && loading
                 ? msg.content
                 : <ReactMarkdown components={mdComponents}>{msg.content}</ReactMarkdown>}
               {loading && isLastAI && <span style={s.cursor}>|</span>}
@@ -263,25 +305,6 @@ const mdComponents = {
   h3: ({ children }: any) => <h3 style={{ fontSize: '1em', fontWeight: 700, margin: '0.5em 0 0.25em', color: '#fff' }}>{children}</h3>,
 };
 
-function HighlightedText({ content, spokenWords }: { content: string; spokenWords: number }) {
-  const tokens = content.split(/(\s+)/);
-  let wordCount = 0;
-  return (
-    <>
-      {tokens.map((token, i) => {
-        if (/^\s+$/.test(token)) return <span key={i}>{token}</span>;
-        const isSpoken = wordCount < spokenWords;
-        wordCount++;
-        return (
-          <span key={i} style={{ color: isSpoken ? '#fff' : 'rgba(255,255,255,0.35)' }}>
-            {token}
-          </span>
-        );
-      })}
-    </>
-  );
-}
-
 const css = `
 @keyframes blink {
   0%, 100% { opacity: 1; }
@@ -326,14 +349,14 @@ function SpeakerIcon() {
 
 const s: Record<string, React.CSSProperties> = {
   root: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#000' },
-  messages: { flex: 1, overflowY: 'auto', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' },
+  messages: { flex: 1, overflowY: 'auto', padding: '1.5rem 1rem 120px', display: 'flex', flexDirection: 'column', gap: '1.25rem' },
   emptyState: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60%' },
   emptyHeading: { fontSize: '1.4rem', fontWeight: 600, color: '#fff', textAlign: 'center', margin: 0 },
   userRow: { display: 'flex', justifyContent: 'flex-end' },
   userBubble: { background: '#2c2c2e', color: '#fff', borderRadius: '18px', padding: '0.65rem 1rem', maxWidth: '75%', fontSize: '0.95rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
   aiBubble: { color: '#fff', fontSize: '0.95rem', lineHeight: 1.7, maxWidth: '90%', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
   cursor: { display: 'inline-block', marginLeft: '1px', animation: 'blink 0.7s step-end infinite', color: 'rgba(255,255,255,0.7)' },
-  inputWrap: { padding: '0.5rem 1rem 1rem', background: '#000' },
+  inputWrap: { padding: '0.5rem 1rem 1rem', background: '#000', position: 'fixed', bottom: '80px', left: 0, right: 0, zIndex: 50 },
   newChatRow: { display: 'flex', justifyContent: 'flex-end', marginBottom: '0.4rem' },
   newChatBtn: { background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', cursor: 'pointer', padding: '2px 4px' },
   inputBar: { display: 'flex', alignItems: 'flex-end', background: '#1c1c1e', borderRadius: '20px', padding: '0.55rem 0.6rem 0.55rem 1.1rem', gap: '0.4rem' },

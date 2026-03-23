@@ -5,8 +5,7 @@ services:
     command: --config /etc/livekit.yaml
     ports:
       - "7880:7880"       # HTTP / WebSocket
-      - "7881:7881"       # RTC TCP
-      - "7882:7882/udp"   # RTC UDP
+      - "7881:7881"       # RTC TCP (UDP removed — TCP is more reliable through Docker on Windows)
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     restart: unless-stopped

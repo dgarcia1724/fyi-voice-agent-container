@@ -5,6 +5,7 @@ import { connectDB } from './db';
 import authRouter from './auth';
 import livekitRouter from './livekit';
 import chatRouter from './chat';
+import ttsRouter from './tts';
 
 const app = express();
 const PORT = 3000;
@@ -19,6 +20,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/livekit', livekitRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/tts', ttsRouter);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

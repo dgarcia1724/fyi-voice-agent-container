@@ -3,9 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ChatView } from '@/components/ui/ChatView';
+import { AIConversation } from '@/components/ui/AIConversation';
 
 type Tab = 'contacts' | 'chats' | 'ai' | 'projects' | 'profile';
+
+export type SharedMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  source: 'chat' | 'voice';
+};
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
@@ -68,10 +75,32 @@ function PageHeader({ title, aiLogo }: { title: string; aiLogo?: boolean }) {
 }
 
 function AIView() {
+  const [messages, setMessages] = useState<SharedMessage[]>([]);
+
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <PageHeader title="AI" aiLogo />
-      <ChatView />
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: '72px' }}>
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99, background: '#000', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <img
+            src="/ai-persona.jpg"
+            alt="Fyiona"
+            style={{ width: '62px', height: '62px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>Fyiona</div>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', fontWeight: 400 }}>AI Persona</div>
+          </div>
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={() => setMessages([])}
+            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', cursor: 'pointer', padding: '4px 8px' }}
+          >
+            + New chat
+          </button>
+        )}
+      </div>
+      <AIConversation messages={messages} setMessages={setMessages} />
     </div>
   );
 }
