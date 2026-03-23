@@ -88,7 +88,7 @@ export function ChatView({ messages, setMessages }: ChatViewProps) {
     if (!text.trim()) return;
     pendingFetchesRef.current++;
     try {
-      const res = await fetch('http://localhost:3000/api/tts', {
+      const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -117,7 +117,7 @@ export function ChatView({ messages, setMessages }: ChatViewProps) {
     let sentenceBuffer = '';
 
     try {
-      const res = await fetch('http://localhost:3000/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [...historyForApi, { role: 'user', content: text }] }),

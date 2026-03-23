@@ -48,7 +48,7 @@ export function AIConversation({ messages, setMessages }: Props) {
 
   async function prefetchToken() {
     try {
-      const res = await fetch(`http://localhost:3000/api/livekit/token?uid=${user!.uid}`);
+      const res = await fetch(`/api/livekit/token?uid=${user!.uid}`);
       if (!res.ok) return;
       const { token, url } = await res.json();
       setLkToken(token);
@@ -77,7 +77,7 @@ export function AIConversation({ messages, setMessages }: Props) {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3000/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [...historyForApi, { role: 'user', content: text }] }),

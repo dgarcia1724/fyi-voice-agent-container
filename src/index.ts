@@ -10,7 +10,8 @@ import ttsRouter from './tts';
 const app = express();
 const PORT = 3000;
 
-app.use(cors({ origin: ['http://localhost:3001', 'http://localhost:3000'] }));
+const allowed = (process.env.ALLOWED_ORIGINS || 'http://localhost:3001,http://localhost:3000').split(',');
+app.use(cors({ origin: allowed, credentials: true }));
 app.use(express.json());
 
 app.get('/', (req, res) => {
