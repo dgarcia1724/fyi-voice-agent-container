@@ -53,11 +53,6 @@ export function AIConversation({ messages, setMessages }: Props) {
       const { token, url } = await res.json();
       setLkToken(token);
       setLkUrl(url);
-      // Pre-warm mic permission so setMicrophoneEnabled(true) is instant on tap
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(t => t.stop());
-      } catch {}
     } catch {}
   }
 
